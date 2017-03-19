@@ -3,7 +3,7 @@
  */
 
 import Compiler from './compiler'
-import Watcher from './wather'
+import Watcher from './watcher'
 import Observer from './observer'
 
 
