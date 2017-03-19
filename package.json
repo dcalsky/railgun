@@ -1,0 +1,14 @@
+{
+  "name": "railgun",
+  "version": "0.0.1",
+  "dependencies": {
+    "@types/node": "^7.0.8"
+  },
+  "devDependencies": {
+    "clean-webpack-plugin": "^0.1.16",
+    "eslint-config-airbnb": "^14.1.0",
+    "ts-loader": "^2.0.2",
+    "typescript": "^2.2.1",
+    "webpack": "^2.2.1"
+  }
+}
