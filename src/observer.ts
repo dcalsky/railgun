@@ -29,7 +29,7 @@ export default class Observer {
             },
             set(newVal) {
                 val = newVal
-                watcher.pubVal(key, val)
+                watcher.triggerFns(key)
             }
         })
     }

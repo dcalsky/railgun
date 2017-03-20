@@ -20,8 +20,13 @@ export default class Watcher {
         this.store.methods[key] = []
         return obj
     }
+    // Todo: If this data is not defined in setting, setter method will not trigger
     pubVal(key: string, val: any): void {
-        let fns = this.store.methods[key]
+        this.store.data[key] = val
+    }
+    triggerFns(key) {
+        let fns = this.store.methods[key],
+            val = this.store.data[key]
         for (let i = 0; i < fns.length; ++i) {
             fns[i](val)
         }
@@ -42,6 +47,10 @@ export default class Watcher {
         return this.store.data[key] || ''
     }
     addValueListener(key: string, cb: Function): void {
+        let method = this.store.methods[key]
+        if (!method) {
+            this.createKey(key)
+        }
         let fns = this.store.methods[key]
         fns.push(cb)
     }

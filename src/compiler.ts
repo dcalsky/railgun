@@ -26,8 +26,12 @@ const utils = {
     getEventPrefix(directive: string) {
         return directive.substring(0, 2)
     },
-    update_text(node: HTMLElement, val: any) {
-        node.textContent = typeof val == 'undefined' ? '' : val
+    update_text(node: HTMLElement, start: number, end: number, val: any) {
+        let text = node.textContent,
+            leftText = text.substring(0, start),
+            rightText = text.substring(end, text.length)
+
+        node.textContent = leftText + val + rightText
     },
     update_input(node: HTMLInputElement, val: any) {
         node.value = typeof val == 'undefined' ? '' : val
@@ -36,7 +40,6 @@ const utils = {
 
 export default class Compiler {
     private watcher
-
     constructor(root: HTMLElement, watcher) {
         this.watcher = watcher
         let nodes = Array.prototype.slice.call(root.childNodes, 0)
@@ -59,22 +62,22 @@ export default class Compiler {
     }
 
     renderText(node: HTMLElement) {
-        let reg = /\{{2}(.*)\}{2}/,
+        let reg = /\{{2}(.*?)\}{2}/g,
             text = node.textContent,
-            result = text.match(reg)
-
-        if (result) {
-            let key = result[1].trim()
-            Compiler._update('text', node, this.watcher.getVal(key))
+            results = reg.test(text)
+        if (!results) return
+        node.textContent = text.replace(reg, (_, key) => {
             this.watcher.addValueListener(key, val => {
-                Compiler._update('text', node, val)
+                node.textContent = text.replace(reg, (m, n) => {
+                    if (n == key) {
+                        return val
+                    } else {
+                        return this.watcher.getVal(n)
+                    }
+                })
             })
-        }
-    }
-
-    static _update(type: string, node: HTMLElement, val: any) {
-        let fn = utils[`update_${type}`]
-        fn && fn(node, val)
+            return this.watcher.getVal(key)
+        })
     }
 
     // After bind, remove it
@@ -84,18 +87,17 @@ export default class Compiler {
     bindElement(node: HTMLElement | HTMLInputElement) {
         let attrs = node.attributes,
             watcher = this.watcher
-        Array.prototype.slice.call(attrs).forEach((attr) => {
+        Array.prototype.slice.call(attrs, 0).forEach((attr) => {
             let name = attr.name,
                 value = attr.value,
                 directive = utils.getDirective(name)
 
             if (utils.isDirective(name) == -1) return
-
             if (directive === DIRECTIVE.model) {
-                Compiler._update('input', node, watcher.getVal(value));
+                utils.update_input((<HTMLInputElement>node), watcher.getVal(value))
                 watcher.addValueListener(value, val => {
                     if (val === (<HTMLInputElement>node).value) return
-                    Compiler._update('input', (node), val)
+                    utils.update_input((<HTMLInputElement>node), val)
                 })
                 node.addEventListener('input', function (event) {
                     watcher.pubVal(value, (<HTMLInputElement>this).value)
@@ -106,5 +108,6 @@ export default class Compiler {
             }
             node.removeAttribute(name)
         })
+        this.renderText(node)
     }
 }
