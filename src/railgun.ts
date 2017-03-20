@@ -6,24 +6,22 @@ import Compiler from './compiler'
 import Watcher from './watcher'
 import Observer from './observer'
 
-interface Store {
-    methods: object
-    data: object
+interface Setting {
+    element: string | object
+    data?: object
+    methods?: object
 }
 
 export class Railgun {
     private rootElement: HTMLElement
     private compiler: Compiler
     private observer: Observer
-    private store: Store
-    constructor(element: string|object, options: object) {
-        this.store = {
-            methods: {},
-            data: {}
-        }
+    private store: object
+    constructor(setting: Setting) {
+        this.store = {}
         let watcher = new Watcher(this.store)
-        this.rootElement = Railgun.getNode(element)
-        this.observer = new Observer(options['data'], options['methods'], watcher)
+        this.rootElement = Railgun.getNode(setting['element'])
+        this.observer = new Observer(setting, this.store, watcher)
         this.compiler = new Compiler(this.rootElement, watcher)
     }
     static getNode(element) {

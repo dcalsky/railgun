@@ -3,45 +3,46 @@
  */
 
 interface Store {
+    data: object,
     methods: object
-    data: object
 }
 
 export default class Watcher {
-    store: Store
+    public store: Store
     constructor(store) {
-        this.store = store
+        this.store = {
+            data: {},
+            methods: {}
+        }
     }
     createKey(key: string, val: any = null): object {
-        let obj = this.store.data[key] = {
-            fns: [],
-            val: val
-        }
+        let obj = this.store.data[key] = val
+        this.store.methods[key] = []
         return obj
-
     }
     pubVal(key: string, val: any): void {
-        let fns = this.store.data[key].fns
-        fns.forEach((fn) => {
-            fn(val)
-        })
+        let fns = this.store.methods[key]
+        for (let i = 0; i < fns.length; ++i) {
+            fns[i](val)
+        }
     }
     createMethod(name: string, fn: Function): void {
-        this.store.methods[name] = fn
+        if (!this.store.data[name]) {
+            this.createKey(name, fn.bind(this.store.data))
+        }
     }
     getMethod(name: string): Function {
-        let fn = this.store.methods[name]
-        if (!fn) {
-            throw 'Cannot find this method!'
+        let method = this.store.data[name]
+        if (!method) {
+            throw `Cannot find *${name}* method!`
         }
-        return fn
+        return method
     }
     getVal(key: string): string {
-        let obj = this.store.data[key]
-        return obj ? obj.val : ''
+        return this.store.data[key] || ''
     }
     addValueListener(key: string, cb: Function): void {
-        let obj = this.store.data[key] || this.createKey(key)
-        obj.fns.push(cb)
+        let fns = this.store.methods[key]
+        fns.push(cb)
     }
 }
