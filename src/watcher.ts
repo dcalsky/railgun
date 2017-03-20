@@ -9,17 +9,16 @@ interface Store {
 
 export default class Watcher {
     store: Store
-    constructor() {
-        this.store = {
-            methods: {},
-            data: {}
-        }
+    constructor(store) {
+        this.store = store
     }
-    createKey(key: string, val: any = null): void {
+    createKey(key: string, val: any = null): object {
         let obj = this.store.data[key] = {
             fns: [],
             val: val
         }
+        return obj
+
     }
     pubVal(key: string, val: any): void {
         let fns = this.store.data[key].fns
@@ -42,10 +41,7 @@ export default class Watcher {
         return obj ? obj.val : ''
     }
     addValueListener(key: string, cb: Function): void {
-        let obj = this.store.data[key]
-        if (!obj) {
-            this.createKey(key)
-        }
+        let obj = this.store.data[key] || this.createKey(key)
         obj.fns.push(cb)
     }
 }

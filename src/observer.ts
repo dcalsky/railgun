@@ -16,6 +16,8 @@ export default class Observer {
         })
     }
     bindEventListener(name: string, fn: Function) {
+        console.log(name)
+        console.log(fn)
         this.watcher.createMethod(name, fn)
     }
     bindValueListener(data: object, key: string, val: any) {

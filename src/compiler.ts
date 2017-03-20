@@ -17,6 +17,15 @@ const utils = {
     isDirective(attr) {
         return attr.indexOf(DIRECTIVE.prefix)
     },
+    getDirective(attrName: string) {
+        return attrName.substring(2)
+    },
+    getEventName(attrName: string) {
+        return attrName.substring(5)
+    },
+    getEventPrefix(directive: string) {
+        return directive.substring(0, 2)
+    },
     update_text(node: HTMLElement, val: any) {
         node.textContent = typeof val == 'undefined' ? '' : val
     },
@@ -39,7 +48,6 @@ export default class Compiler {
     handleChildNode(nodes: HTMLElement) {
         let node = nodes as HTMLElement,
             nodeType = node.nodeType
-        console.log(node)
         switch (nodeType) {
             case NODE_TYPE.element:
                 this.bindElement(node)
@@ -52,8 +60,9 @@ export default class Compiler {
 
     renderText(node: HTMLElement) {
         let reg = /\{{2}(.*)\}{2}/,
-            text = node.textContent
-        let result = text.match(reg)
+            text = node.textContent,
+            result = text.match(reg)
+
         if (result) {
             let key = result[1].trim()
             Compiler._update('text', node, this.watcher.getVal(key))
@@ -68,31 +77,33 @@ export default class Compiler {
         fn && fn(node, val)
     }
 
-    bindElement(node: HTMLElement) {
+    // After bind, remove it
+    // Do not change the value of input which is been typing
+    // Get the initial value
+    // Add type event listener
+    bindElement(node: HTMLElement | HTMLInputElement) {
         let attrs = node.attributes,
             watcher = this.watcher
         Array.prototype.slice.call(attrs).forEach((attr) => {
             let name = attr.name,
                 value = attr.value,
-                directive
-            if (utils.isDirective(name) == -1) {
-                return
-            }
-            directive = name.substring(2)
+                directive = utils.getDirective(name)
+
+            if (utils.isDirective(name) == -1) return
+
             if (directive === DIRECTIVE.model) {
-                Compiler._update('input', (<HTMLInputElement>node), watcher.getVal(value));
-                // Add type event listener
+                Compiler._update('input', node, watcher.getVal(value));
                 watcher.addValueListener(value, val => {
-                    Compiler._update('input', (<HTMLInputElement>node), val)
-                });
-                (<HTMLInputElement>node).addEventListener('input', function (event) {
-                    watcher.pubVal(value, this.value)
+                    if (val === (<HTMLInputElement>node).value) return
+                    Compiler._update('input', (node), val)
                 })
-            } else if (directive === DIRECTIVE.eventPrefix) {
-                let eventName = name.substring(5) // like click event
-                node.addEventListener(eventName, this.watcher.getMethod(eventName))
+                node.addEventListener('input', function (event) {
+                    watcher.pubVal(value, (<HTMLInputElement>this).value)
+                })
+            } else if (utils.getEventPrefix(directive) === DIRECTIVE.eventPrefix) {
+                let eventName = utils.getEventName(name)
+                node.addEventListener(eventName, this.watcher.getMethod(value))
             }
-            // After bind, remove it
             node.removeAttribute(name)
         })
     }
