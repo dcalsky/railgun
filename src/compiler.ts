@@ -9,7 +9,7 @@ const enum NODE_TYPE {
 
 const DIRECTIVE = {
     prefix: 'n-',
-    for: 'for',
+    loop: 'for',
     model: 'model',
     eventPrefix: 'on'
 }
@@ -36,12 +36,15 @@ const utils = {
     },
     update_input(node: HTMLInputElement, val: any) {
         node.value = typeof val == 'undefined' ? '' : val
+    },
+    toArray(value: any) {
+        return Array.prototype.slice.call(value, 0)
     }
 }
 
 export default class Compiler {
     private watcher
-
+    private context: object | null = null
     constructor(root: HTMLElement, watcher) {
         this.watcher = watcher
         this._handleChilds(root.childNodes)
@@ -51,6 +54,16 @@ export default class Compiler {
         let nodesArray = Array.prototype.slice.call(nodes, 0)
         nodesArray.forEach((node) => {
             this.handleNode(node)
+        })
+    }
+    _observeKey(key: string, node: HTMLElement, text: string, reg: RegExp) {
+        // If the special context is existed, then do not add value listener
+        !this.context && this.watcher.addValueListener(key, val => {
+            // @text is gotten from the closure
+            node.textContent = text.replace(reg, (_, n) => {
+                let subKeys = n.split('.')
+                return n === key ? val : this.watcher.getVal(subKeys)
+            })
         })
     }
     handleNode(node: HTMLElement) {
@@ -72,35 +85,30 @@ export default class Compiler {
 
         if (!results) return
         node.textContent = text.replace(reg, (_, key) => {
-            this.watcher.addValueListener(key, val => {
-                node.textContent = text.replace(reg, (m, n) => {
-                    return n == key ? val : this.watcher.getVal(n)
-                })
-            })
-            return this.watcher.getVal(key)
+            let subKeys = key.split('.')
+            this._observeKey(key, node, text, reg)
+            return this.watcher.getVal(subKeys, this.context)
         })
     }
     bindElement(node: HTMLElement | HTMLInputElement) {
-        let attrs = node.attributes,
-            watcher = this.watcher
-        Array.prototype.slice.call(attrs, 0).forEach((attr) => {
+        let attrs = node.attributes
+        utils.toArray(attrs).forEach((attr) => {
             let name = attr.name,
                 value = attr.value,
                 directive = utils.getDirective(name)
 
-            if (utils.isDirective(name)) return
+            if (!utils.isDirective(name)) return
 
             if (directive === DIRECTIVE.model) {
                 this._handleModel(<HTMLInputElement>node, value)
             } else if (utils.getEventPrefix(directive) === DIRECTIVE.eventPrefix) {
                 this._handleEvent(node, utils.getEventName(name), value)
-            } else if (directive === DIRECTIVE.for) {
-                this._handleFor(node)
+            } else if (directive === DIRECTIVE.loop) {
+                this._handleLoop(node, value)
             }
             // Finished attribute bind, remove it
             node.removeAttribute(name)
         })
-        this.renderText(node)
     }
     _handleModel(node: HTMLInputElement, key: string) {
         let watcher = this.watcher
@@ -116,8 +124,40 @@ export default class Compiler {
     }
     _handleEvent(node: HTMLElement, eventName: string, key: string) {
         node.addEventListener(eventName, this.watcher.getMethod(key))
+        this.renderText(node)
     }
-    _handleFor(node) {
-
+    _handleLoop(node: HTMLElement, expression: string) {
+        let reg = /(.+)\s+in\s+(.+)/,
+            result = expression.match(reg),
+            itemName: string,
+            collection: Array<any> | object,
+            context: object
+        if (!result) {
+            throw 'The loop expression is wrong!'
+        }
+        context = Object.create({})
+        itemName = result[1]
+        collection = this.watcher.getVal(result[2])
+        // If collection is array
+        if (Array.isArray(collection)) {
+            // Create the special context for rendering variables of child node
+            for (let i = 0; i < collection.length; ++i) {
+                context[itemName] = collection[i]
+                context['$index'] = i
+                this.context = context
+                this._handleChilds(node.childNodes)
+            }
+        } else if (collection instanceof Object) {
+            let keys = itemName.split(',').map(key => key.trim())
+            keys.forEach(key => {
+                context[key] = collection[key]
+            })
+            this.context = context
+            this._handleChilds(node.childNodes)
+        } else {
+            throw 'The type of the collection must be one of Array and Object!'
+        }
+        // Remove the context which be created while loop
+        this.context = null
     }
 }

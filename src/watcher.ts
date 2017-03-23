@@ -1,3 +1,4 @@
+import {type} from "os";
 /**
  * Created by Dcalsky on 2017/3/19.
  */
@@ -43,15 +44,22 @@ export default class Watcher {
         }
         return method
     }
-    getVal(key: string): string {
-        return this.store.data[key] || ''
+    getVal(keys: Array<string> | string, context?: object): string {
+        let store = context && Object.keys(context).length > 0 ? context : this.store.data
+        if (typeof keys === 'string') {
+            return store[keys] || ''
+        }
+        let value = store[keys[0]]
+        for (let i = 1; i < keys.length; ++i) {
+            value = value[keys[i]]
+        }
+        return value == undefined ? '' : value
     }
-    addValueListener(key: string, cb: Function): void {
-        let method = this.store.methods[key]
-        if (!method) {
+    addValueListener(key: string, fn: Function): void {
+        if (!this.store.methods[key]) {
             this.createKey(key)
         }
         let fns = this.store.methods[key]
-        fns.push(cb)
+        fns.push(fn)
     }
 }
